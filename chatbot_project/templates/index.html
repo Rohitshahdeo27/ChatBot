@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Chatbot</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: url('https://images.unsplash.com/photo-1501127122-f385ca6ddd9d?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8ZmFzaGlvbiUyMGJhY2tncm91bmR8ZW58MHx8MHx8fDA%3D') no-repeat center center fixed; 
+            background-size: cover; 
+            padding: 20px; 
+            text-align: center; 
+            color: #fff;
+            margin: 0;
+        }
+        #chatbox { 
+            width: 60%; 
+            margin: auto; 
+            height: 400px; 
+            overflow-y: auto; 
+            background: rgba(65, 58, 61, 0.9); 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); 
+        }
+        .user, .bot { 
+            padding: 10px; 
+            margin: 10px; 
+            border-radius: 8px; 
+            width: fit-content; 
+            max-width: 80%; 
+            display: flex; 
+            align-items: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        .user { 
+            background-color: #d18a69; 
+            margin-left: auto; 
+        }
+        .bot { 
+            background-color: #69d26e; 
+            margin-right: auto; 
+        }
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .msg-time {
+            font-size: 0.7em;
+            opacity: 0.7;
+            margin-right: 5px;
+        }
+        input { 
+            padding: 10px; 
+            width: 50%; 
+            margin-top: 10px; 
+            border-radius: 5px;
+            border: none;
+        }
+        button { 
+            padding: 10px 20px; 
+            margin-left: 10px; 
+            border-radius: 5px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        h1{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: black;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .footer {
+            margin-top: 20px;
+        }
+        .footer a {
+            text-decoration: none;
+            color: yellow;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @media (max-width: 768px) {
+            #chatbox { width: 90%; }
+            input { width: 70%; }
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Chatbot 🤖</h1>
+    <div id="chatbox"></div>
+    <input type="text" id="userInput" placeholder="Type a message..." />
+    <button id="sendBtn">Send</button>
+
+    <div class="footer">
+        <p>📄 Need help? <a href="/faq">Check out our FAQ page</a></p>
+    </div>
+
+    <script>
+        // Auto-focus input on load
+        window.onload = function() {
+            document.getElementById("userInput").focus();
+        };
+
+        // Get current time for timestamps
+        function getTime() {
+            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function sendMessage() {
+            let userInput = document.getElementById("userInput");
+            let userMsg = userInput.value.trim();
+            if (userMsg === "") return;
+
+            let chatbox = document.getElementById("chatbox");
+            let sendBtn = document.getElementById("sendBtn");
+
+            // Disable send button while waiting for response
+            sendBtn.disabled = true;
+
+            // Add user message with timestamp
+            chatbox.innerHTML += `
+                <div class="user">
+                    <img src="https://cdn-icons-png.flaticon.com/512/1077/1077012.png" class="avatar"/>
+                    <span class="msg-time">${getTime()}</span>${userMsg}
+                </div>
+            `;
+
+            // Show "Typing..." indicator
+            let typingDiv = document.createElement('div');
+            typingDiv.className = "bot";
+            typingDiv.id = "typing";
+            typingDiv.innerHTML = `
+                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712109.png" class="avatar"/>
+                Typing<span class="dots"></span>
+            `;
+            chatbox.appendChild(typingDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            // Animate typing dots
+            let dotStates = [".", "..", "..."];
+            let dots = 0;
+            const interval = setInterval(() => {
+                typingDiv.querySelector('.dots').textContent = dotStates[dots % 3];
+                dots++;
+            }, 400);
+
+            // Fetch response from backend
+            fetch("/get", {
+                method: "POST",
+                body: new URLSearchParams({ "msg": userMsg }),
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Server error");
+                return res.json();
+            })
+            .then(data => {
+                clearInterval(interval);
+                typingDiv.remove();
+                
+                // Add bot response with timestamp
+                chatbox.innerHTML += `
+                    <div class="bot">
+                        <img src="https://cdn-icons-png.flaticon.com/512/4712/4712109.png" class="avatar"/>
+                        <span class="msg-time">${getTime()}</span>${data.response}
+                    </div>
+                `;
+                chatbox.scrollTop = chatbox.scrollHeight;
+            })
+            .catch(err => {
+                clearInterval(interval);
+                typingDiv.remove();
+                chatbox.innerHTML += `
+                    <div class="bot">
+                        <img src="https://cdn-icons-png.flaticon.com/512/4712/4712109.png" class="avatar"/>
+                        Error: Could not fetch response. Please try again.
+                    </div>
+                `;
+                chatbox.scrollTop = chatbox.scrollHeight;
+            })
+            .finally(() => {
+                sendBtn.disabled = false;
+                userInput.value = "";
+                userInput.focus();
+            });
+        }
+
+        // Event listeners
+        document.getElementById("sendBtn").addEventListener("click", sendMessage);
+        document.getElementById("userInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
